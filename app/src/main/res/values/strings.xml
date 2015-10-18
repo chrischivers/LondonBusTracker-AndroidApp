@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">London Bus Tracker</string>
+    <string name="title_activity_maps">Map</string>
+    <string name="title_activity_initialise">London Bus Tracker</string>
+
+    <string name="choose_routes">Select Route(s):</string>
+    <string name="run">Run</string>
+    <string name="action_settings">Settings</string>
+</resources>
