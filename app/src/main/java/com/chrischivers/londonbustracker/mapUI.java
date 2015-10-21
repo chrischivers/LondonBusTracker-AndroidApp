@@ -73,7 +73,7 @@ public class mapUI extends FragmentActivity {
 
     private void setUpWebSocket(final String routeSelection) {
 
-        final String wsuri = "ws://vmi49109.contabo.host/";
+        final String wsuri = "ws://23.92.71.114/";
 
         try {
             mConnection.connect(wsuri, new WebSocketHandler() {
