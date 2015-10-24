@@ -4,6 +4,9 @@
     <string name="title_activity_initialise">London Bus Tracker</string>
 
     <string name="choose_routes">Select Route(s):</string>
-    <string name="run">Run</string>
+    <string name="showSelectedButton">Show selected</string>
+    <string name="showCurrentLocationButton">Use Current Locaton</string>
+    <string name="or">OR</string>
     <string name="action_settings">Settings</string>
+
 </resources>

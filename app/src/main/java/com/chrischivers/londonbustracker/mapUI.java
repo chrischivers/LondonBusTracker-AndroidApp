@@ -1,22 +1,20 @@
 package com.chrischivers.londonbustracker;
 
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.RotateDrawable;
+import android.location.Location;
 import android.os.Handler;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 
 import android.widget.Toast;
 
+import com.google.android.gms.maps.CameraUpdate;
+import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.model.BitmapDescriptor;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -26,16 +24,31 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 
 import de.tavendo.autobahn.WebSocketConnection;
 import de.tavendo.autobahn.WebSocketException;
 import de.tavendo.autobahn.WebSocketHandler;
 
-public class mapUI extends FragmentActivity {
+public class mapUI extends FragmentActivity  {
+
 
     private GoogleMap mMap; // Might be null if Google Play services APK is not available.
+    // Google client to interact with Google API
+
+    private final String wsuri = "ws://23.92.71.114/";
     private  Map<String, Vehicle> vehicleMap = new HashMap<String, Vehicle>();
+
+    private String routeSelection;
+    private String MODE;
+    private String MODE_LIST_SELECTION = "LIST_SELECTION";
+    private String MODE_RADIUS = "RADIUS";
+    private int RADIUS_DEFAULT_LENGTH = 1500;
+    private LatLng currentPosition = null;
+
     private final WebSocketConnection mConnection = new WebSocketConnection();
     Handler handler = new Handler();
     IconGenerator iconFactory;
@@ -43,11 +56,30 @@ public class mapUI extends FragmentActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // First we need to check availability of play services
+
         setContentView(R.layout.activity_maps);
-        String routeSelection = getIntent().getStringExtra("RouteSelection");
-        setUpMapIfNeeded();
-        setUpWebSocket(routeSelection);
         setUpIconFactory();
+
+        Bundle bundle = getIntent().getParcelableExtra("LocationBundle");
+        assert(bundle != null);
+        Location location = bundle.getParcelable("FetchedLocation");
+        if (location != null) {
+            currentPosition = new LatLng(location.getLatitude(), location.getLongitude());
+            System.out.println("Current Position: " + currentPosition);
+        }
+
+        MODE = getIntent().getStringExtra("MODE");
+        if (MODE.equals(MODE_LIST_SELECTION)) {
+            routeSelection = getIntent().getStringExtra("RouteSelection");
+
+            setUpMapIfNeeded();
+            setUpWebSocket();
+        } else if (MODE.equals(MODE_RADIUS)) {
+            setUpMapIfNeeded();
+            setUpWebSocket();
+        }
+
     }
 
     @Override
@@ -56,11 +88,8 @@ public class mapUI extends FragmentActivity {
         setUpMapIfNeeded();
     }
 
-
     private void setUpMapIfNeeded() {
-        // Do a null check to confirm that we have not already instantiated the map.
         if (mMap == null) {
-            // Try to obtain the map from the SupportMapFragment.
             mMap = ((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map))
                     .getMap();
         }
@@ -68,12 +97,39 @@ public class mapUI extends FragmentActivity {
     }
 
     private void setUpMap() {
-        mMap.setInfoWindowAdapter(new InfoAdapter(getLayoutInflater(),this));
+        mMap.setInfoWindowAdapter(new InfoAdapter(getLayoutInflater(), this));
+        if (currentPosition != null ){
+            CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(currentPosition, 14);
+            mMap.animateCamera(cameraUpdate);
+            mMap.setOnCameraChangeListener(new GoogleMap.OnCameraChangeListener() {
+                @Override
+                public void onCameraChange(CameraPosition cameraPosition) {
+                    currentPosition = cameraPosition.target;
+                    if (MODE.equals(MODE_RADIUS)) {
+                        mConnection.sendTextMessage("RADIUS," + RADIUS_DEFAULT_LENGTH + ",(" + currentPosition.latitude + ", " + currentPosition.longitude + ")");
+
+                        //Map<String, Vehicle> vehicleMapCopy = vehicleMap;
+                            Set<String> keySet = vehicleMap.keySet();
+                            Set<Vehicle> toRemove = new HashSet<Vehicle>();
+                            for (String key : keySet) {
+                                Vehicle v = vehicleMap.get(key);
+                                LatLng markerPosition = v.markerPair.imageMarker.getPosition();
+                                float[] distance = new float[1];
+                                Location.distanceBetween(currentPosition.latitude, currentPosition.longitude, markerPosition.latitude, markerPosition.longitude, distance);
+                                if (distance[0] > RADIUS_DEFAULT_LENGTH) {
+                                    toRemove.add(v);
+                                }
+                            }
+                            for (Vehicle v: toRemove) {
+                                killMarker(v);
+                            }
+                    }
+                }
+            });
+        }
     }
 
-    private void setUpWebSocket(final String routeSelection) {
-
-        final String wsuri = "ws://23.92.71.114/";
+    private void setUpWebSocket() {
 
         try {
             mConnection.connect(wsuri, new WebSocketHandler() {
@@ -81,7 +137,11 @@ public class mapUI extends FragmentActivity {
                 @Override
                 public void onOpen() {
                     Toast.makeText(getApplicationContext(), "Status: Connected to " + wsuri, Toast.LENGTH_SHORT).show();
-                    mConnection.sendTextMessage("ROUTELIST," + routeSelection);
+                    if (MODE.equals(MODE_LIST_SELECTION)) {
+                        mConnection.sendTextMessage("ROUTELIST," + routeSelection);
+                    } else if (MODE.equals(MODE_RADIUS)) {
+                        mConnection.sendTextMessage("RADIUS," + RADIUS_DEFAULT_LENGTH + ",(" + currentPosition.latitude + ", " + currentPosition.longitude + ")");
+                    }
                 }
 
                 @Override
@@ -111,14 +171,22 @@ public class mapUI extends FragmentActivity {
             JSONObject jObject = new JSONObject(message);
             System.out.println(jObject);
             if (jObject.getString("nextArr").equals("kill")) {
-                //TODO KILL
+                Vehicle v = vehicleMap.get(jObject.getString("reg"));
+                killMarker(v);
             } else {
                 setNewLocation(jObject.getString("reg"), jObject.getLong("nextArr"), jObject.getString("movementData"), jObject.getString("routeID"), jObject.getInt("directionID"), jObject.getString("towards"), jObject.getString("nextStopID"), jObject.getString("nextStopName"));
             }
         } catch (JSONException e) {
             e.printStackTrace();
         }
+    }
 
+    private void killMarker(Vehicle v) {
+        if (v != null) {
+            v.markerPair.textMarker.remove();
+            v.markerPair.imageMarker.remove();
+            vehicleMap.remove(v.reg);
+        }
     }
 
     private void setNewLocation(final String reg, final long nextArr, String movementDataArray, final String routeID, final int directionID, final String towards, final String nextStopID, final String nextStopName) {
@@ -153,7 +221,7 @@ public class mapUI extends FragmentActivity {
         System.out.println("Wait Time: " + waitTime);
         if (waitTime <= 0) {
             moveInstruction.run();
-        } else{
+        } else {
             handler.postDelayed(moveInstruction, waitTime);
         }
     }
@@ -183,6 +251,9 @@ public class mapUI extends FragmentActivity {
         Marker textMarker = mMap.addMarker(textMarkerOptions);
         return new MarkerPair(imageMarker, textMarker);
     }
+
+
+
 
 
   class MoveMarker implements Runnable {
@@ -230,9 +301,9 @@ public class mapUI extends FragmentActivity {
                   @Override
                   public void run() {
                       vehicle.markerPair.imageMarker.setRotation(rotation);
-                      MarkerAnimation.animateMarkerToHC(vehicle.markerPair, latLng, latLngInterpolator, (long) actualDuration);
+                      MarkerAnimation.animateMarkerToHC(vehicle.markerPair, latLng, latLngInterpolator, actualDuration);
                   }
-              }, ((long) startTimeOffsetAccumulator));
+              }, (startTimeOffsetAccumulator));
               startTimeOffsetAccumulator += actualDuration;
 
           }
