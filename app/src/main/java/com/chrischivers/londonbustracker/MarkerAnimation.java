@@ -19,7 +19,7 @@ package com.chrischivers.londonbustracker;
         import com.google.android.gms.maps.model.Marker;
 
 public class MarkerAnimation {
-    static void animateMarkerToGB(final MarkerPair markerPair, final LatLng finalPosition, final LatLngInterpolator latLngInterpolator, final long duration) {
+   /* static void animateMarkerToGB(final MarkerPair markerPair, final LatLng finalPosition, final LatLngInterpolator latLngInterpolator, final long duration) {
         final LatLng startPosition = markerPair.imageMarker.getPosition();
         final Handler handler = new Handler();
         final long start = SystemClock.uptimeMillis();
@@ -50,20 +50,28 @@ public class MarkerAnimation {
                 }
             }
         });
-    }
+    }*/
 
     @TargetApi(Build.VERSION_CODES.HONEYCOMB)
     static void animateMarkerToHC(final MarkerPair markerPair, final LatLng finalPosition, final LatLngInterpolator latLngInterpolator, final long duration) {
-        final LatLng startPosition = markerPair.imageMarker.getPosition();
+        final LatLng startPositionText = markerPair.textMarker.getPosition();
+        final LatLng startPositionImage = markerPair.imageMarker.getPosition();
 
         ValueAnimator valueAnimator = new ValueAnimator();
         valueAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
             public void onAnimationUpdate(ValueAnimator animation) {
                 float v = animation.getAnimatedFraction();
-                LatLng newPosition = latLngInterpolator.interpolate(v, startPosition, finalPosition);
-                markerPair.imageMarker.setPosition(newPosition);
-                markerPair.textMarker.setPosition(newPosition);
+                // Offset necessary to avoid flickering markers in UI
+                LatLng newPositionImage = latLngInterpolator.interpolate(v, startPositionImage, new LatLng(finalPosition.latitude + 0.000005, finalPosition.longitude + 0.000005));
+                LatLng newPositionText = latLngInterpolator.interpolate(v, startPositionText, finalPosition);
+                markerPair.textMarker.setPosition(newPositionText);
+                markerPair.imageMarker.setPosition(newPositionImage);
+
+               // markerPair.textMarker.showInfoWindow();
+
+
+
             }
         });
         valueAnimator.setFloatValues(0, 1); // Ignored.
@@ -71,7 +79,7 @@ public class MarkerAnimation {
         valueAnimator.start();
     }
 
-    @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
+  /*  @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
     static void animateMarkerToICS(MarkerPair markerPair, LatLng finalPosition, final LatLngInterpolator latLngInterpolator, final long duration) {
         TypeEvaluator<LatLng> typeEvaluator = new TypeEvaluator<LatLng>() {
             @Override
@@ -86,5 +94,5 @@ public class MarkerAnimation {
         textMarkerAnimator.setDuration(duration);
         imageMarkerAnimator.start();
         textMarkerAnimator.start();
-    }
+    }*/
 }

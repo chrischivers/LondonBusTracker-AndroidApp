@@ -7,6 +7,7 @@ import android.os.Handler;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.maps.CameraUpdate;
@@ -25,7 +26,6 @@ import org.json.JSONObject;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -37,10 +37,11 @@ public class mapUI extends FragmentActivity  {
 
 
     private GoogleMap mMap; // Might be null if Google Play services APK is not available.
-    // Google client to interact with Google API
+    private TextView mapTextBelow;
 
     private final String wsuri = "ws://23.92.71.114/";
     private  Map<String, Vehicle> vehicleMap = new HashMap<String, Vehicle>();
+    private String mapTextBelowHoldingReg = "";
 
     private String routeSelection;
     private String MODE;
@@ -48,6 +49,7 @@ public class mapUI extends FragmentActivity  {
     private String MODE_RADIUS = "RADIUS";
     private int RADIUS_DEFAULT_LENGTH = 1500;
     private LatLng currentPosition = null;
+    private LatLng DEFAULT_POSITION = new LatLng(51.508155,-0.128317);
 
     private final WebSocketConnection mConnection = new WebSocketConnection();
     Handler handler = new Handler();
@@ -59,6 +61,7 @@ public class mapUI extends FragmentActivity  {
         // First we need to check availability of play services
 
         setContentView(R.layout.activity_maps);
+        mapTextBelow = (TextView) findViewById(R.id.mapTextBelow);
         setUpIconFactory();
 
         Bundle bundle = getIntent().getParcelableExtra("LocationBundle");
@@ -79,13 +82,12 @@ public class mapUI extends FragmentActivity  {
             setUpMapIfNeeded();
             setUpWebSocket();
         }
-
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        setUpMapIfNeeded();
+        resetMap();
     }
 
     private void setUpMapIfNeeded() {
@@ -94,13 +96,23 @@ public class mapUI extends FragmentActivity  {
                     .getMap();
         }
         setUpMap();
+        mMap.setInfoWindowAdapter(new MapWindowAdapter(this));
     }
 
+    private void resetMap() {
+        mMap.clear();
+        vehicleMap.clear();
+    }
+
+
     private void setUpMap() {
-        mMap.setInfoWindowAdapter(new InfoAdapter(getLayoutInflater(), this));
-        if (currentPosition != null ){
+        if (currentPosition != null ) {
             CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(currentPosition, 14);
             mMap.animateCamera(cameraUpdate);
+        } else {
+            CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(DEFAULT_POSITION, 14);
+            mMap.animateCamera(cameraUpdate);
+        }
             mMap.setOnCameraChangeListener(new GoogleMap.OnCameraChangeListener() {
                 @Override
                 public void onCameraChange(CameraPosition cameraPosition) {
@@ -113,7 +125,7 @@ public class mapUI extends FragmentActivity  {
                             Set<Vehicle> toRemove = new HashSet<Vehicle>();
                             for (String key : keySet) {
                                 Vehicle v = vehicleMap.get(key);
-                                LatLng markerPosition = v.markerPair.imageMarker.getPosition();
+                                LatLng markerPosition = v.markerPair.textMarker.getPosition();
                                 float[] distance = new float[1];
                                 Location.distanceBetween(currentPosition.latitude, currentPosition.longitude, markerPosition.latitude, markerPosition.longitude, distance);
                                 if (distance[0] > RADIUS_DEFAULT_LENGTH) {
@@ -126,7 +138,23 @@ public class mapUI extends FragmentActivity  {
                     }
                 }
             });
-        }
+        mMap.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
+            @Override
+            public boolean onMarkerClick(Marker marker) {
+                mapTextBelow.setText(marker.getSnippet());
+                mapTextBelowHoldingReg = marker.getTitle();
+                return false;
+            }
+        });
+
+        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
+            @Override
+            public void onMapClick(LatLng latLng) {
+                mapTextBelow.setText("");
+                mapTextBelowHoldingReg = "";
+            }
+        });
+
     }
 
     private void setUpWebSocket() {
@@ -136,11 +164,15 @@ public class mapUI extends FragmentActivity  {
 
                 @Override
                 public void onOpen() {
-                    Toast.makeText(getApplicationContext(), "Status: Connected to " + wsuri, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getApplicationContext(), "Connected to server. Please wait 1-2 minutes for vehicles to sync.", Toast.LENGTH_SHORT).show();
                     if (MODE.equals(MODE_LIST_SELECTION)) {
                         mConnection.sendTextMessage("ROUTELIST," + routeSelection);
                     } else if (MODE.equals(MODE_RADIUS)) {
-                        mConnection.sendTextMessage("RADIUS," + RADIUS_DEFAULT_LENGTH + ",(" + currentPosition.latitude + ", " + currentPosition.longitude + ")");
+                        if (currentPosition != null) {
+                            mConnection.sendTextMessage("RADIUS," + RADIUS_DEFAULT_LENGTH + ",(" + currentPosition.latitude + ", " + currentPosition.longitude + ")");
+                        } else {
+                            mConnection.sendTextMessage("RADIUS," + RADIUS_DEFAULT_LENGTH + ",(" + DEFAULT_POSITION.latitude + ", " + DEFAULT_POSITION.longitude + ")");
+                        }
                     }
                 }
 
@@ -151,7 +183,7 @@ public class mapUI extends FragmentActivity  {
 
                 @Override
                 public void onClose(int code, String reason) {
-                    Toast.makeText(getApplicationContext(), "Connection lost.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getApplicationContext(), "Connection dropped. Please reload.", Toast.LENGTH_SHORT).show();
                 }
             });
         } catch (WebSocketException e) {
@@ -205,19 +237,19 @@ public class mapUI extends FragmentActivity  {
         if(vehicleMap.containsKey(reg)) {
             Vehicle v = vehicleMap.get(reg);
             v.setStateParameters(routeID,directionID,towards,nextStopID,nextStopName);
-            moveVehicle(v, new MoveInstruction(latLngArray, rotationArray, proportionalDurationArray, nextArr), routeID, towards, nextStopName, reg);
+            moveVehicle(new MoveInstruction(v, routeID, towards, nextStopName, reg, latLngArray, rotationArray, proportionalDurationArray, nextArr));
 
         } else {
             MarkerPair mp = addMarkerPair(routeID, latLngArray[0], rotationArray[0], reg, directionID, towards, nextStopID, nextStopName);
             Vehicle newVehicle = new Vehicle(reg,mp,routeID,directionID,towards,nextStopID,nextStopName);
             vehicleMap.put(reg, newVehicle);
-            moveVehicle(newVehicle, new MoveInstruction(latLngArray, rotationArray, proportionalDurationArray, nextArr), routeID, towards, nextStopName, reg);
+            moveVehicle(new MoveInstruction(newVehicle, routeID, towards, nextStopName, reg, latLngArray, rotationArray, proportionalDurationArray, nextArr));
         }
     }
 
-    private void moveVehicle(Vehicle vehicle, MoveInstruction mI, String route, String towards, String nextStopName, String reg) {
-        Thread moveInstruction = new Thread(new MoveMarker(vehicle, mI, route,towards,nextStopName,reg));
-        long waitTime = vehicle.nextArrivalTime - System.currentTimeMillis();
+    private void moveVehicle(MoveInstruction mI) {
+        Thread moveInstruction = new Thread(new MoveMarker(mI));
+        long waitTime = mI.vehicle.nextArrivalTime - System.currentTimeMillis();
         System.out.println("Wait Time: " + waitTime);
         if (waitTime <= 0) {
             moveInstruction.run();
@@ -229,20 +261,21 @@ public class mapUI extends FragmentActivity  {
     private MarkerPair addMarkerPair(String routeID, LatLng initialPosition, int initialRotation, String reg, int directionID, String towards, String nextStopID, String nextStopName) {
 
         MarkerOptions imageMarkerOptions = new MarkerOptions()
-                .position(initialPosition)
+                .position(new LatLng(initialPosition.latitude + 0.000005, initialPosition.longitude + 0.000005)) // Offset necessary to avoid flickering markers in UI
                 .rotation(initialRotation)
-                .title(reg)
                 .icon(BitmapDescriptorFactory.fromResource(R.drawable.busicon))
+                .title(reg)
+                .snippet("Route: " + routeID + " towards " + towards + "\n" + "Next Stop: " + nextStopName)
                 .anchor(0.5f, 0.5f)
                 .visible(false);
 
 
-        MarkerOptions textMarkerOptions = new MarkerOptions().
-                icon(BitmapDescriptorFactory.fromBitmap(iconFactory.makeIcon(routeID)))
+        MarkerOptions textMarkerOptions = new MarkerOptions()
+                .icon(BitmapDescriptorFactory.fromBitmap(iconFactory.makeIcon(routeID)))
                 .position(initialPosition)
                 .rotation(initialRotation)
-                .snippet(routeID + "," + towards + "," + nextStopName + "," + reg)
-                .infoWindowAnchor(0.5f, 0f)
+                .title(reg)
+                .snippet("Route: " + routeID +" towards " + towards + "\n" + "Next Stop: " + nextStopName)
                 .anchor(0.5f, 0.5f)
                 .visible(false);
 
@@ -258,30 +291,28 @@ public class mapUI extends FragmentActivity  {
 
   class MoveMarker implements Runnable {
       //TODO update routeID etc
-      MoveInstruction mI;
-      Vehicle vehicle;
-      String route;
-      String towards;
-      String nextStopName;
-      String reg;
-      Handler handler = new Handler();
-      LatLngInterpolator latLngInterpolator = new LatLngInterpolator.Linear();
+      private MoveInstruction mI;
+      private Handler handler = new Handler();
+      private LatLngInterpolator latLngInterpolator = new LatLngInterpolator.Linear();
 
-      public MoveMarker(Vehicle vehicle, MoveInstruction mI, String route, String towards, String nextStopName, String reg) {
-          this.vehicle = vehicle;
+      public MoveMarker(MoveInstruction mI) {
           this.mI = mI;
-          this.route = route;
-          this.towards = towards;
-          this.nextStopName = nextStopName;
-          this.reg = reg;
       }
 
       @Override
       public void run() {
-          vehicle.markerPair.imageMarker.setVisible(true);
-          vehicle.markerPair.textMarker.setVisible(true);
-          vehicle.markerPair.textMarker.setSnippet(route + "," + towards + "," + nextStopName + "," + reg);
-          vehicle.nextArrivalTime = mI.nextArrivalTime;
+          mI.vehicle.markerPair.imageMarker.setVisible(true);
+          mI.vehicle.markerPair.textMarker.setVisible(true);
+
+          mI.vehicle.markerPair.imageMarker.setSnippet("Route: " + mI.route + " towards " + mI.towards + "\n" + "Next Stop: " + mI.nextStopName);
+          mI.vehicle.markerPair.textMarker.setSnippet("Route: " + mI.route + " towards " + mI.towards + "\n" + "Next Stop: " + mI.nextStopName);
+
+          //Sets text view if marker currently being shown
+          if (mapTextBelowHoldingReg.equals(mI.reg)) {
+              mapTextBelow.setText(mI.vehicle.markerPair.imageMarker.getSnippet());
+          }
+
+          mI.vehicle.nextArrivalTime = mI.nextArrivalTime;
           long dur = (mI.nextArrivalTime - System.currentTimeMillis());
           if (dur < 0) {
               dur = 0;
@@ -300,17 +331,13 @@ public class mapUI extends FragmentActivity  {
               handler.postDelayed(new Runnable() {
                   @Override
                   public void run() {
-                      vehicle.markerPair.imageMarker.setRotation(rotation);
-                      MarkerAnimation.animateMarkerToHC(vehicle.markerPair, latLng, latLngInterpolator, actualDuration);
+                      mI.vehicle.markerPair.imageMarker.setRotation(rotation);
+                      MarkerAnimation.animateMarkerToHC(mI.vehicle.markerPair, latLng, latLngInterpolator, actualDuration);
                   }
               }, (startTimeOffsetAccumulator));
               startTimeOffsetAccumulator += actualDuration;
 
           }
       }
-
-
   }
-
-
 }
