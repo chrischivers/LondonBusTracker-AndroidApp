@@ -1,5 +1,6 @@
 package com.chrischivers.londonbustracker;
 
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.location.Location;
@@ -7,6 +8,8 @@ import android.os.Handler;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 
+import android.text.Html;
+import android.view.Gravity;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -62,6 +65,8 @@ public class mapUI extends FragmentActivity  {
 
         setContentView(R.layout.activity_maps);
         mapTextBelow = (TextView) findViewById(R.id.mapTextBelow);
+        mapTextBelow.setText(Html.fromHtml("<big><b>London Bus Tracker</b></big>"));
+        mapTextBelow.setGravity(Gravity.CENTER);
         setUpIconFactory();
 
         Bundle bundle = getIntent().getParcelableExtra("LocationBundle");
@@ -75,12 +80,15 @@ public class mapUI extends FragmentActivity  {
         MODE = getIntent().getStringExtra("MODE");
         if (MODE.equals(MODE_LIST_SELECTION)) {
             routeSelection = getIntent().getStringExtra("RouteSelection");
-
+            if (!mConnection.isConnected()) {
+                setUpWebSocket();
+            }
             setUpMapIfNeeded();
-            setUpWebSocket();
         } else if (MODE.equals(MODE_RADIUS)) {
+            if (!mConnection.isConnected()) {
+                setUpWebSocket();
+            }
             setUpMapIfNeeded();
-            setUpWebSocket();
         }
     }
 
@@ -88,6 +96,13 @@ public class mapUI extends FragmentActivity  {
     protected void onResume() {
         super.onResume();
         resetMap();
+    }
+
+
+    @Override
+    protected void onSaveInstanceState (Bundle outState) {
+        super.onSaveInstanceState(outState);
+        mConnection.disconnect();
     }
 
     private void setUpMapIfNeeded() {
@@ -118,8 +133,9 @@ public class mapUI extends FragmentActivity  {
                 public void onCameraChange(CameraPosition cameraPosition) {
                     currentPosition = cameraPosition.target;
                     if (MODE.equals(MODE_RADIUS)) {
-                        mConnection.sendTextMessage("RADIUS," + RADIUS_DEFAULT_LENGTH + ",(" + currentPosition.latitude + ", " + currentPosition.longitude + ")");
-
+                        if (mConnection.isConnected()) {
+                            mConnection.sendTextMessage("RADIUS," + RADIUS_DEFAULT_LENGTH + ",(" + currentPosition.latitude + ", " + currentPosition.longitude + ")");
+                        }
                         //Map<String, Vehicle> vehicleMapCopy = vehicleMap;
                             Set<String> keySet = vehicleMap.keySet();
                             Set<Vehicle> toRemove = new HashSet<Vehicle>();
@@ -143,7 +159,7 @@ public class mapUI extends FragmentActivity  {
             public boolean onMarkerClick(Marker marker) {
                 mapTextBelow.setText(marker.getSnippet());
                 mapTextBelowHoldingReg = marker.getTitle();
-                return false;
+                return true;
             }
         });
 
@@ -164,7 +180,7 @@ public class mapUI extends FragmentActivity  {
 
                 @Override
                 public void onOpen() {
-                    Toast.makeText(getApplicationContext(), "Connected to server. Please wait 1-2 minutes for vehicles to sync.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getApplicationContext(), "Connected to server.\nPlease wait 1-2 minutes for vehicles to sync.", Toast.LENGTH_SHORT).show();
                     if (MODE.equals(MODE_LIST_SELECTION)) {
                         mConnection.sendTextMessage("ROUTELIST," + routeSelection);
                     } else if (MODE.equals(MODE_RADIUS)) {

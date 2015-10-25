@@ -12,6 +12,8 @@ import com.google.android.gms.maps.Projection;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 
+import java.io.Serializable;
+
 public class Vehicle {
     String reg;
     MarkerPair markerPair;

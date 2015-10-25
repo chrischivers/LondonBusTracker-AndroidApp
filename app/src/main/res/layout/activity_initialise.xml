@@ -11,6 +11,7 @@
         android:layout_height="wrap_content"
         android:textAppearance="?android:attr/textAppearanceLarge"
         android:text="@string/title_activity_initialise"
+        android:textStyle="bold"
         android:id="@+id/selectRouteTitle"
         android:layout_alignParentTop="true"
         android:layout_alignParentLeft="true"

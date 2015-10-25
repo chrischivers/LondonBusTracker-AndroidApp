@@ -41,6 +41,7 @@ import java.util.List;
 public class RouteSelection extends FragmentActivity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
     private final static int PLAY_SERVICES_RESOLUTION_REQUEST = 1000;
+    private final static int MAX_NUMBER_ROUTES = 10;
 
     private ListView listView;
     private Button useSelectedButton;
@@ -113,16 +114,22 @@ public class RouteSelection extends FragmentActivity implements GoogleApiClient.
                         selectedList.add((routeAdapter.getItem(i).getRouteID()));
                     }
                 }
-                System.out.println("Selected List: " + selectedList);
-                String csvList = TextUtils.join(",", selectedList);
-                Intent i = new Intent(getApplicationContext(), mapUI.class);
+                if (selectedList.size() == 0) {
+                    Toast.makeText(getApplicationContext(),"No routes selected", Toast.LENGTH_SHORT).show();
+                }
+                else if (selectedList.size() > MAX_NUMBER_ROUTES) {
+                    Toast.makeText(getApplicationContext(),"Too many routes selected. Maximum allowed is " + MAX_NUMBER_ROUTES +".", Toast.LENGTH_SHORT).show();
+                } else {
+                    String csvList = TextUtils.join(",", selectedList);
+                    Intent i = new Intent(getApplicationContext(), mapUI.class);
 
-                Bundle args = new Bundle();
-                 args.putParcelable("FetchedLocation", mLastLocation);
-                i.putExtra("LocationBundle", args);
-                i.putExtra("MODE","LIST_SELECTION");
-                i.putExtra("RouteSelection", csvList);
-                startActivity(i);
+                    Bundle args = new Bundle();
+                    args.putParcelable("FetchedLocation", mLastLocation);
+                    i.putExtra("LocationBundle", args);
+                    i.putExtra("MODE", "LIST_SELECTION");
+                    i.putExtra("RouteSelection", csvList);
+                    startActivity(i);
+                }
             }
         });
         useCurrentLocationButton = (Button) findViewById(R.id.useCurrentLocationButton);
