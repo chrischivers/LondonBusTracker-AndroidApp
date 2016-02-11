@@ -1,12 +1,14 @@
 <resources>
-    <string name="app_name">London Bus Tracker</string>
+    <string name="app_name">Live London Bus Map</string>
     <string name="title_activity_maps">Map</string>
-    <string name="title_activity_initialise">London Bus Tracker</string>
+    <string name="title_activity_initialise">Live London Bus Map</string>
 
     <string name="choose_routes">Select Route(s):</string>
     <string name="showSelectedButton">Show selected</string>
     <string name="showCurrentLocationButton">Use My Current Locaton</string>
     <string name="or">OR</string>
     <string name="action_settings">Settings</string>
+
+    <string name="not_in_london">Your reported location is outside of London. Setting to the default position</string>
 
 </resources>

@@ -1,8 +1,6 @@
-package com.chrischivers.londonbustracker;
+package com.chivsoft.livelondonbusmap;
 
 import com.google.android.gms.maps.model.Marker;
-
-import java.io.Serializable;
 
 public class MarkerPair {
     Marker imageMarker;

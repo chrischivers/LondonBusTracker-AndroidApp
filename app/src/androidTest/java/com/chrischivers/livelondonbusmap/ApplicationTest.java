@@ -1,4 +1,4 @@
-package com.chrischivers.londonbustracker;
+package com.guhaninteractive.livelondonbusmap;
 
 import android.app.Application;
 import android.test.ApplicationTestCase;

@@ -1,4 +1,4 @@
-package com.chrischivers.londonbustracker;
+package com.chivsoft.livelondonbusmap;
 
 import com.google.android.gms.maps.model.LatLng;
 
