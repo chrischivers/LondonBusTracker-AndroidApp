@@ -42,7 +42,7 @@ public class mapUI extends FragmentActivity  {
     private GoogleMap mMap; // Might be null if Google Play services APK is not available.
     private TextView mapTextBelow;
 
-    private final String wsuri = "ws://23.92.71.114/websocket";
+    private final String wsuri = "ws://104.237.58.118/websocket";
     private  Map<String, Vehicle> vehicleMap = new HashMap<String, Vehicle>();
     private String mapTextBelowHoldingReg = "";
 
@@ -231,7 +231,7 @@ public class mapUI extends FragmentActivity  {
                 Vehicle v = vehicleMap.get(jObject.getString("reg"));
                 killMarker(v);
             } else {
-                setNewLocation(jObject.getString("reg"), jObject.getLong("nextArr"), jObject.getString("movementData"), jObject.getString("routeID"), jObject.getInt("directionID"), jObject.getString("towards"), jObject.getString("nextStopID"), jObject.getString("nextStopName"));
+                setNewLocation(jObject.getString("reg"), jObject.getLong("nextArr"), jObject.getString("movementData"), jObject.getString("routeID"), jObject.getString("direction"), jObject.getString("towards"), jObject.getString("nextStopID"), jObject.getString("nextStopName"));
             }
         } catch (JSONException e) {
             e.printStackTrace();
@@ -250,7 +250,7 @@ public class mapUI extends FragmentActivity  {
         }
     }
 
-    private void setNewLocation(final String reg, final long nextArr, String movementDataArray, final String routeID, final int directionID, final String towards, final String nextStopID, final String nextStopName) {
+    private void setNewLocation(final String reg, final long nextArr, String movementDataArray, final String routeID, final String direction, final String towards, final String nextStopID, final String nextStopName) {
         final String movementDataSplitArray[] = movementDataArray.substring(2,movementDataArray.length() -2).split("\",\"");
         final LatLng latLngArray[] = new LatLng[movementDataSplitArray.length];
         final int rotationArray[] = new int[movementDataSplitArray.length];
@@ -276,12 +276,12 @@ public class mapUI extends FragmentActivity  {
 
         if(vehicleMap.containsKey(reg)) {
             Vehicle v = vehicleMap.get(reg);
-            v.setStateParameters(routeID,directionID,towards,nextStopID,nextStopName);
+            v.setStateParameters(routeID,direction,towards,nextStopID,nextStopName);
             moveVehicle(new MoveInstruction(v, routeID, towards, nextStopName, reg, latLngArray, rotationArray, proportionalDurationArray, nextArr));
 
         } else {
-            MarkerPair mp = addMarkerPair(routeID, latLngArray[0], rotationArray[0], reg, directionID, towards, nextStopID, nextStopName);
-            Vehicle newVehicle = new Vehicle(reg,mp,routeID,directionID,towards,nextStopID,nextStopName);
+            MarkerPair mp = addMarkerPair(routeID, latLngArray[0], rotationArray[0], reg, direction, towards, nextStopID, nextStopName);
+            Vehicle newVehicle = new Vehicle(reg,mp,routeID,direction,towards,nextStopID,nextStopName);
             vehicleMap.put(reg, newVehicle);
             moveVehicle(new MoveInstruction(newVehicle, routeID, towards, nextStopName, reg, latLngArray, rotationArray, proportionalDurationArray, nextArr));
         }
@@ -298,7 +298,7 @@ public class mapUI extends FragmentActivity  {
         }
     }
 
-    private MarkerPair addMarkerPair(String routeID, LatLng initialPosition, int initialRotation, String reg, int directionID, String towards, String nextStopID, String nextStopName) {
+    private MarkerPair addMarkerPair(String routeID, LatLng initialPosition, int initialRotation, String reg, String direction, String towards, String nextStopID, String nextStopName) {
 
         MarkerOptions imageMarkerOptions = new MarkerOptions()
                 .position(new LatLng(initialPosition.latitude + 0.000005, initialPosition.longitude + 0.000005)) // Offset necessary to avoid flickering markers in UI

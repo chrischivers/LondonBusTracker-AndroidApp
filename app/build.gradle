@@ -8,8 +8,8 @@ android {
         applicationId "com.chivsoft.livelondonbusmap"
         minSdkVersion 15
         targetSdkVersion 23
-        versionCode 5
-        versionName "1.04"
+        versionCode 7
+        versionName "1.06"
     }
     buildTypes {
         release {

@@ -149,7 +149,7 @@ public class RouteSelection extends FragmentActivity implements GoogleApiClient.
     }
 
     private void getRouteList() {
-        String urlString = "http://23.92.71.114/route_list_with_first_last_stops_request.asp";
+        String urlString = "http://104.237.58.118/route_list_with_first_last_stops_request.asp";
         try {
             URL url = new URL(urlString);
             new getRouteList().execute(url);
